@@ -1,0 +1,36 @@
+name: Import verified Terra site
+on:
+  push:
+    paths:
+      - '.github/workflows/import-terra.yml'
+      - '.terra-import/**'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: terra-initial-import
+  cancel-in-progress: false
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download and verify the prepared public site
+        run: python3 .terra-import/import.py
+      - name: Commit complete site
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          python3 - <<'PY'
+          import json, subprocess
+          from pathlib import Path
+          paths = [entry["path"] for entry in json.loads(Path(".terra-import/manifest.json").read_text())]
+          subprocess.run(["git", "add", "--", *paths], check=True)
+          PY
+          if git diff --cached --quiet; then
+            echo "The complete site is already present."
+          else
+            git commit -m "Upload complete Terra Earth atlas and image assets"
+            git push origin HEAD:main
+          fi
