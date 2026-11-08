@@ -16,6 +16,14 @@ def transfer(entry):
     if relative.is_absolute() or ".." in relative.parts:
         raise ValueError("Unsafe path")
     destination = staging / relative
+    existing = Path(relative)
+    if existing.is_file():
+        data = existing.read_bytes()
+        digest = hashlib.sha1(b"blob " + str(len(data)).encode() + b"\0" + data).hexdigest()
+        if digest == entry["sha"]:
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_bytes(data)
+            return entry["path"]
     url = BASE_URL + ("" if entry["path"] == "index.html" else quote(entry["path"]))
     for attempt in range(3):
         try:
